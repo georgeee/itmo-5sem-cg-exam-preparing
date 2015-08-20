@@ -2,12 +2,30 @@ package ru.georgeee.itmo.sem5.cg.quadtree;
 
 import ru.georgeee.itmo.sem5.cg.common.Point2d;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+import java.util.function.BiPredicate;
+
 /**
  * Basic compressed QuadTree for 1x1 square
  */
 
-public class BasicQuadTree implements QuadTree{
-    private Sector rootSector;
+public class BasicQuadTree implements QuadTree {
+    private final BiPredicate<Point2d, Point2d> equalComparator;
+    private final Random random;
+
+    private final List<Sector> layers;
+
+    public BasicQuadTree() {
+        this(Point2d::equals);
+    }
+
+    public BasicQuadTree(BiPredicate<Point2d, Point2d> equalComparator) {
+        this.equalComparator = equalComparator;
+        layers = new ArrayList<>();
+        random = new Random(System.currentTimeMillis());
+    }
 
     @Override
     public boolean contains(Point2d point) {
@@ -16,8 +34,21 @@ public class BasicQuadTree implements QuadTree{
 
     @Override
     public boolean add(Point2d point) {
-
-        return false;
+        try {
+            //@TODO findSector(Point2d p)
+            //Then we jump by link and so on
+            //after that we add sector, renew links
+            //then iterate till top while coin gives success
+            if (rootSector == null) {
+                rootSector = new PointSector(point, equalComparator);
+            } else {
+                PointSector pointSector = new PointSector(point, equalComparator);
+                rootSector = rootSector.add(pointSector);
+            }
+            return true;
+        } catch (PointAlreadyExistsException e) {
+            return false;
+        }
     }
 
     @Override
