@@ -13,9 +13,10 @@ import java.util.function.BiPredicate;
 
 public class BasicQuadTree implements QuadTree {
     private final BiPredicate<Point2d, Point2d> equalComparator;
-    private final Random random;
+    private final Random random = new Random(System.currentTimeMillis());
 
-    private final List<Sector> layers;
+    private final List<Sector> layers = new ArrayList<>();
+    ;
 
     public BasicQuadTree() {
         this(Point2d::equals);
@@ -23,8 +24,6 @@ public class BasicQuadTree implements QuadTree {
 
     public BasicQuadTree(BiPredicate<Point2d, Point2d> equalComparator) {
         this.equalComparator = equalComparator;
-        layers = new ArrayList<>();
-        random = new Random(System.currentTimeMillis());
     }
 
     @Override
@@ -35,6 +34,10 @@ public class BasicQuadTree implements QuadTree {
     @Override
     public boolean add(Point2d point) {
         try {
+            List<Sector> predChain = new ArrayList<>();
+            for (int i = layers.size() - 1; i >= 0; ++i) {
+
+            }
             //@TODO findSector(Point2d p)
             //Then we jump by link and so on
             //after that we add sector, renew links

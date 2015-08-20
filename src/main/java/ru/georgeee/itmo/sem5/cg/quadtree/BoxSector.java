@@ -61,6 +61,47 @@ public class BoxSector implements Sector {
         }
     }
 
+    @Override
+    public Sector findLowestPredecessor(Point2d point) {
+        double[] boundaries = new double[3];
+        findMinEnclosing(boundaries, getMin(), getMax());
+
+        double bx = boundaries[0];
+        double by = boundaries[1];
+        double len = boundaries[2];
+        if (bx <= point.getX() && point.getX() < bx + len && by <= point.getY() && point.getY() < by + len) {
+            return findLowestPredecessorInSelf(point, bx, by, len);
+        } else {
+            //We can't dig down any more, so we return parent
+            //Parent is obviously a predecessor (null - whole 1x1 square), cause if it wasn't recursion would stop
+            //some steps earlier
+            return getParent();
+        }
+    }
+
+    private Sector findLowestPredecessorInSelf(Point2d point, double bx, double by, double len) {
+        if (point.getX() < bx + len / 2) {
+            if (point.getY() < by + len / 2) {
+                return findLowestPredecessorInSubSector(nw, point);
+            } else {
+                return findLowestPredecessorInSubSector(ne, point);
+            }
+        } else {
+            if (point.getY() < by + len / 2) {
+                return findLowestPredecessorInSubSector(sw, point);
+            } else {
+                return findLowestPredecessorInSubSector(se, point);
+            }
+        }
+    }
+
+    private Sector findLowestPredecessorInSubSector(Sector sector, Point2d point) {
+        if (sector == null || sector instanceof PointSector) {
+            return this;
+        }
+        return sector.findLowestPredecessor(point);
+    }
+
     /**
      * Inserts point to one of sectors
      *
