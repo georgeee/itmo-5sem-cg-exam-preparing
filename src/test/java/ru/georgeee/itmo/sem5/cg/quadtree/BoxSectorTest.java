@@ -1,69 +1,87 @@
 package ru.georgeee.itmo.sem5.cg.quadtree;
 
-import junit.framework.TestCase;
+import junit.framework.AssertionFailedError;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import ru.georgeee.itmo.sem5.cg.common.EqualComparator;
+import ru.georgeee.itmo.sem5.cg.common.Point2d;
+import ru.georgeee.itmo.sem5.cg.common.PrecisionComparator;
 
-public class BoxSectorTest extends TestCase {
+import java.util.*;
+import java.util.function.Function;
 
-//    private List<Pair<BoxSector, List<Point2d>>> getTestPairs() {
-//        List<Pair<BoxSector, List<Point2d>>> testPairs = new ArrayList<>();
-//        testPairs.add(createBoxSectorForNWAndSE(0.1, 0.1, 0.8, 0.8));
-//        testPairs.add(createBoxSectorForNWAndSE(0.38, 0.18, 0.45, 0.2));
-//        return testPairs;
-//    }
-//
-//    private Pair<BoxSector, List<Point2d>> createBoxSectorForNWAndSE(double x1, double y1, double x2, double y2) {
-//        BoxSector boxSector = new BoxSector();
-//        Point2d p1 = new Point2d(x1, y1);
-//        Point2d p2 = new Point2d(x2, y2);
-//        boxSector.setNW(new PointSector(p1));
-//        boxSector.setSE(new PointSector(p2));
-//        List<Point2d> points = new ArrayList<>();
-//        points.add(p1);
-//        points.add(p2);
-//        return new ImmutablePair<>(boxSector, points);
-//    }
-//
-//    public void testCalcEffectiveBoundaries() throws Exception {
-//        for (Pair<BoxSector, List<Point2d>> testPair : getTestPairs()) {
-//            testCalcEffectiveBoundaries(testPair.getLeft(), testPair.getRight());
-//        }
-//    }
-//
-//    private void testCalcEffectiveBoundaries(BoxSector boxSector, List<Point2d> points) {
-//        double[] res = new double[3];
-//        int t = boxSector.calcEffectiveBoundaries(res);
-//        double lx = res[0];
-//        double ly = res[1];
-//        double rTwoT = res[2];
-//        int counters [] = new int[4];
-//        points.forEach(p -> {
-//            assertTrue(lx <= p.getX() && p.getX() < lx + rTwoT);
-//            assertTrue(ly <= p.getY() && p.getY() < ly + rTwoT);
-//            if (p.getY() < ly + rTwoT / 2) {
-//                if (p.getX() < lx + rTwoT / 2) {
-//                    ++counters[0];
-//                } else {
-//                    ++counters[1];
-//                }
-//            } else {
-//                if (p.getX() < lx + rTwoT / 2) {
-//                    ++counters[2];
-//                } else {
-//                    ++counters[3];
-//                }
-//            }
-//        });
-//        int nonNull = 0;
-//        for (int counter : counters) {
-//            nonNull += counter > 0 ? 1 : 0;
-//        }
-//        System.out.println("==============");
-//        System.out.println(boxSector);
-//        System.out.println(points);
-//        System.out.println(t);
-//        System.out.println(Arrays.toString(res));
-//        assertTrue(nonNull > 1);
-//    }
+public class BoxSectorTest extends AbstractTest {
+    private static final Logger log = LoggerFactory.getLogger(BoxSectorTest.class);
+    private final Random random = new Random(System.currentTimeMillis());
+    private static final int RANDOM_TEST_COUNT = 100;
+    private static final int RANDOM_TEST_REPEAT = 10;
+
+    public void testRandom() {
+        log.info("Testing random points");
+        testOnComparators(this::testRandomPoints);
+    }
+
+    void testOnComparators(Function<EqualComparator<Point2d>, Void> f) {
+        log.info("Testing on fair comparator");
+        f.apply(Point2d::equals);
+        log.info("Testing on precision 10^-9");
+        f.apply(new PrecisionComparator(1.0E-9));
+        log.info("Testing on precision 10^-5");
+        f.apply(new PrecisionComparator(1.0E-5));
+        log.info("Testing on precision 10^-3");
+        f.apply(new PrecisionComparator(1.0E-3));
+        log.info("Testing on precision 10^-1");
+        f.apply(new PrecisionComparator(1.0E-1));
+    }
+
+    Void testRandomPoints(EqualComparator<Point2d> equalComparator) {
+        for (int i = 0; i < RANDOM_TEST_REPEAT; ++i) {
+            log.info("Random: test set #{}", i);
+            testRandomPoints(RANDOM_TEST_COUNT, equalComparator);
+        }
+        return null;
+    }
+
+    void testRandomPoints(int count, EqualComparator<Point2d> equalComparator) {
+        List<Point2d> points = new ArrayList<>();
+        for (int i = 0; i < count; ++i) {
+            points.add(genRandomPoint());
+        }
+        testPoints(points, equalComparator);
+    }
+
+    void testPoints(List<Point2d> points, EqualComparator<Point2d> equalComparator) {
+        try {
+            Sector sector = null;
+            Set<Point2d> pointSet = new TreeSet<>(equalComparator);
+            for (Point2d p : points) {
+                PointSector pointSector = new PointSector(p, equalComparator);
+                boolean contains = pointSet.add(p);
+                if (sector == null) {
+                    sector = pointSector;
+                } else {
+                    try {
+                        sector = sector.add(pointSector);
+                        assertFalse(contains);
+                    } catch (PointAlreadyExistsException e) {
+                        assertTrue(equalComparator.test(e.getPoint(), p));
+                        assertTrue(contains);
+                    }
+                }
+            }
+            validateSector(sector, pointSet);
+        } catch (AssertionFailedError e) {
+            log.info("Points: {}", points);
+        }
+    }
+
+    private PointSector genRandomPointSector(EqualComparator<Point2d> equalComparator) {
+        return new PointSector(genRandomPoint(), equalComparator);
+    }
+
+    private Point2d genRandomPoint() {
+        return new Point2d(random.nextDouble(), random.nextDouble());
+    }
 
 
 }

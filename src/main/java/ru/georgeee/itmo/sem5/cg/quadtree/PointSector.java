@@ -3,28 +3,32 @@ package ru.georgeee.itmo.sem5.cg.quadtree;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
+import ru.georgeee.itmo.sem5.cg.common.EqualComparator;
 import ru.georgeee.itmo.sem5.cg.common.Point2d;
 
 import java.util.Objects;
-import java.util.function.BiPredicate;
 
-@ToString
-public class PointSector implements Sector {
+@ToString(of = {"point"})
+class PointSector implements Sector {
     @Getter
     private final Point2d point;
+    private final EqualComparator<Point2d> equalComparator;
     @Getter @Setter
     private Sector parent;
     @Getter @Setter
     private Sector link;
 
-    private final BiPredicate<Point2d, Point2d> equalComparator;
-
-    public PointSector(Point2d point, BiPredicate<Point2d, Point2d> equalComparator) {
+    public PointSector(Point2d point, EqualComparator<Point2d> equalComparator) {
         if (point == null) {
             throw new NullPointerException();
         }
         this.point = point;
         this.equalComparator = equalComparator;
+    }
+
+    @Override
+    public Sector findLowestPredecessor(Point2d point) {
+        return null;
     }
 
     @Override
