@@ -6,49 +6,50 @@ import ru.georgeee.itmo.sem5.cg.common.Point2d;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Stream;
+import java.util.function.Predicate;
 
 abstract class AbstractTest extends TestCase {
     void validateSector(Sector sector, Set<Point2d> points) {
-        validateSectorImpl(sector, points, null, null, null);
+        validateSectorImpl(sector, points, null);
         assertTrue(points.isEmpty());
     }
 
-    private void validateSectorImpl(Sector sector, Set<Point2d> points, Sector parent, Point2d min, Point2d max) {
+    private void validateSectorImpl(Sector sector, Set<Point2d> points, Sector parent) {
         if (sector == null) {
             return;
         }
         assertTrue(sector.getParent() == parent);
         //Min, max transitivity
-        assertTrue(sector.getMin().compareTo(min) >= 0);
-        assertTrue(sector.getMax().compareTo(max) <= 0);
+        if (parent != null && parent.getTopLeft() != null) {
+            assertTrue(sector.getTopLeft().compareTo(parent.getTopLeft()) >= 0);
+        }
         if (sector instanceof PointSector) {
             Point2d point = ((PointSector) sector).getPoint();
-            assertTrue(points.contains(point));
-            points.remove(point);
-            assertTrue(point.compareTo(min) >= 0);
-            assertTrue(point.compareTo(max) <= 0);
+            assertTrue(points.remove(point));
+            if (parent != null && parent.getTopLeft() != null) {
+                assertTrue(point.compareTo(parent.getTopLeft()) >= 0);
+            }
         } else {
             assertTrue(sector instanceof BoxSector);
             BoxSector boxSector = (BoxSector) sector;
-            boxSector.calcBoundaries();
-            double bx = boxSector.getBoundaries()[0];
-            double by = boxSector.getBoundaries()[1];
-            double blen = boxSector.getBoundaries()[2];
             List<SubSectorType> allTypes = Arrays.asList(SubSectorType.values());
-            Stream<SubSectorType> nonNull = allTypes.stream().filter(t -> boxSector.getSubSector(t) != null);
-            assertTrue(nonNull.count() >= 2);
-            nonNull.forEach(type -> {
+            Predicate<SubSectorType> notNull = t -> boxSector.getSubSector(t) != null;
+            assertTrue(allTypes.stream().filter(notNull).count() >= 2);
+            allTypes.stream().filter(notNull).forEach(type -> {
+                checkWithin(type, boxSector);
                 Sector subSector = boxSector.getSubSector(type);
-                checkWithin(subSector, type, bx, by, blen);
-                validateSectorImpl(subSector, points, sector, sector.getMin(), sector.getMax());
+                validateSectorImpl(subSector, points, sector);
             });
         }
     }
 
-    void checkWithin(Sector subSector, SubSectorType type, double bx, double by, double len) {
-        checkWithin(subSector.getMin(), type, bx, by, len);
-        checkWithin(subSector.getMax(), type, bx, by, len);
+    void checkWithin(SubSectorType type, BoxSector boxSector) {
+        Sector subSector = boxSector.getSubSector(type);
+        checkWithin(subSector.getTopLeft(), type, boxSector.getTopLeft().getX(), boxSector.getTopLeft().getY(), boxSector.getLen());
+    }
+
+    void checkWithin(Point2d point, SubSectorType type, double[] bounds) {
+        checkWithin(point, type, bounds[0], bounds[1], bounds[2]);
     }
 
     void checkWithin(Point2d point, SubSectorType type, double bx, double by, double len) {

@@ -3,7 +3,6 @@ package ru.georgeee.itmo.sem5.cg.quadtree;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
-import ru.georgeee.itmo.sem5.cg.common.EqualComparator;
 import ru.georgeee.itmo.sem5.cg.common.Point2d;
 
 import java.util.Objects;
@@ -12,18 +11,18 @@ import java.util.Objects;
 class PointSector implements Sector {
     @Getter
     private final Point2d point;
-    private final EqualComparator<Point2d> equalComparator;
+    private final double precision;
     @Getter @Setter
     private Sector parent;
     @Getter @Setter
     private Sector link;
 
-    public PointSector(Point2d point, EqualComparator<Point2d> equalComparator) {
+    public PointSector(Point2d point, double precision) {
         if (point == null) {
             throw new NullPointerException();
         }
         this.point = point;
-        this.equalComparator = equalComparator;
+        this.precision = precision;
     }
 
     @Override
@@ -32,18 +31,13 @@ class PointSector implements Sector {
     }
 
     @Override
-    public Point2d getMin() {
-        return point;
-    }
-
-    @Override
-    public Point2d getMax() {
+    public Point2d getTopLeft() {
         return point;
     }
 
     @Override
     public Sector add(PointSector pointSector) {
-        return BoxSector.createSector(this, pointSector, equalComparator);
+        return new BoxSector(this, pointSector, precision);
     }
 
     @Override

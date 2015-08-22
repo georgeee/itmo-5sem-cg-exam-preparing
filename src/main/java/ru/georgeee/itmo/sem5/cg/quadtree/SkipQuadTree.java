@@ -1,6 +1,5 @@
 package ru.georgeee.itmo.sem5.cg.quadtree;
 
-import ru.georgeee.itmo.sem5.cg.common.EqualComparator;
 import ru.georgeee.itmo.sem5.cg.common.Point2d;
 import ru.georgeee.itmo.sem5.cg.common.Utils;
 
@@ -14,21 +13,21 @@ import java.util.Random;
 
 public class SkipQuadTree implements QuadTree {
     private final Coin coin;
-    private final EqualComparator<Point2d> equalComparator;
+    private final double precision;
 
     private final List<Sector> layers = new ArrayList<>();
 
     public SkipQuadTree() {
-        this(createRandomCoin(), Point2d::equals);
+        this(createRandomCoin(), 0);
     }
 
     public SkipQuadTree(Coin coin) {
-        this(coin, Point2d::equals);
+        this(coin, 0);
     }
 
-    public SkipQuadTree(Coin coin, EqualComparator<Point2d> equalComparator) {
+    public SkipQuadTree(Coin coin, double precision) {
         this.coin = coin;
-        this.equalComparator = equalComparator;
+        this.precision = precision;
     }
 
     private static Coin createRandomCoin() {
@@ -46,7 +45,7 @@ public class SkipQuadTree implements QuadTree {
         List<Sector> predChain = getPredecessorChain(point);
         for (int i = 0; i < layers.size() + 1; ++i) {
             if (i > 0 && coin.decide(i, point)) break;
-            PointSector pointSector = new PointSector(point, equalComparator);
+            PointSector pointSector = new PointSector(point, precision);
             if (i == layers.size()) {
                 layers.add(pointSector);
                 if (i > 0) {

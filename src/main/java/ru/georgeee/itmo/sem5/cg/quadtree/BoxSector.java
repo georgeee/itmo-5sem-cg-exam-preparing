@@ -3,12 +3,9 @@ package ru.georgeee.itmo.sem5.cg.quadtree;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
-import ru.georgeee.itmo.sem5.cg.common.EqualComparator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.georgeee.itmo.sem5.cg.common.Point2d;
-
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
 
 import static java.lang.Math.floor;
 
@@ -18,31 +15,105 @@ import static java.lang.Math.floor;
  * When one of them is to be removed, then box itself should be replaced with remaining sector (in parent)
  */
 class BoxSector implements Sector {
+    private static final Logger log = LoggerFactory.getLogger(BoxSector.class);
+    private static final int MANTISSA_LENGTH = 52;
+    private final double precision;
+    @Getter(AccessLevel.PACKAGE)
+    private final int depth;
     @Getter
+    private final Point2d topLeft;
+    @Getter(AccessLevel.PACKAGE)
+    private final double len;
     private Sector nw, ne, sw, se;
-
     @Getter
     @Setter
     private Sector link;
-
     @Getter
     @Setter
     private Sector parent;
 
-    private final EqualComparator<Point2d> equalComparator;
-
-    private BoxSector(EqualComparator<Point2d> equalComparator) {
-        this.equalComparator = equalComparator;
+    public BoxSector(Sector a, PointSector b, double precision) {
+        this.precision = precision;
+        double[] bounds = new double[3];
+        depth = findMinEnclosing(bounds, a.getTopLeft(), b.getPoint());
+        len = bounds[2];
+        if (depth == Integer.MAX_VALUE || (precision > 0 && len / 2 < precision)) {
+            throw new PointAlreadyExistsException(b.getPoint());
+        }
+        topLeft = new Point2d(bounds[0], bounds[1]);
+        try {
+            addToEmptySubSector(a, bounds[0], bounds[1], bounds[2]);
+            addToEmptySubSector(b, bounds[0], bounds[1], bounds[2]);
+        } catch (IllegalStateException e) {
+            log.error("Failed to add to empty sector: a={} b={} bounds={}", a, b, bounds, e);
+            throw e;
+        }
     }
 
-    @Getter
-    private Point2d min, max;
+    static SubSectorType determineType(Point2d point, double bx, double by, double len) {
+        if (bx <= point.getX() && point.getX() < bx + len && by <= point.getY() && point.getY() < by + len) {
+            if (point.getX() < bx + len / 2) {
+                if (point.getY() < by + len / 2) {
+                    return SubSectorType.NW;
+                } else {
+                    return SubSectorType.SW;
+                }
+            } else {
+                if (point.getY() < by + len / 2) {
+                    return SubSectorType.NE;
+                } else {
+                    return SubSectorType.SE;
+                }
+            }
+        }
+        return null;
+    }
 
-    private void updateTreeConstraints() {
-        updateTreeConstraints(SubSectorType.NW);
-        updateTreeConstraints(SubSectorType.NE);
-        updateTreeConstraints(SubSectorType.SW);
-        updateTreeConstraints(SubSectorType.SE);
+    /**
+     * Finds such maximal int i, that floor(x*2^i) == floor(y*2^i)
+     *
+     * @param x
+     * @param y
+     * @return
+     */
+    static int calcDepth(double x, double y) {
+        if (x < 0 || x > 1 || y < 0 || y > 1) {
+            throw new IllegalArgumentException("Passed x, y outside [0; 1]: " + x + " " + y);
+        }
+        if (x == y) {
+            return Integer.MAX_VALUE;
+        }
+        if (x > y) {
+            double z = x;
+            x = y;
+            y = z;
+        }
+        int yExp = -Math.getExponent(y);
+        if (x == 0) {
+            return yExp - 1;
+        }
+        int xExp = -Math.getExponent(x);
+        long xMant = Double.doubleToLongBits(x) & ((1L << MANTISSA_LENGTH) - 1);
+        long yMant = Double.doubleToLongBits(y) & ((1L << MANTISSA_LENGTH) - 1);
+        if (xExp == yExp) {
+            //+1 because first 1 isn't counted (double 1,{mant}E{exp} is kept without leading one)
+            return xExp + Long.numberOfLeadingZeros(xMant ^ yMant) - (64 - MANTISSA_LENGTH);
+        } else {
+            return Math.min(xExp, yExp) - 1;
+        }
+    }
+
+    static int findMinEnclosing(double[] result, Point2d topLeft, Point2d bottomRight) {
+        int ox = calcDepth(topLeft.getX(), bottomRight.getX());
+        int oy = calcDepth(topLeft.getY(), bottomRight.getY());
+        int depth = Math.min(ox, oy);
+        double twoT = Math.pow(2.0, depth);
+        double lx = floor(topLeft.getX() * twoT) / twoT;
+        double ly = floor(topLeft.getY() * twoT) / twoT;
+        result[0] = lx;
+        result[1] = ly;
+        result[2] = 1 / twoT;
+        return depth;
     }
 
     @Override
@@ -51,10 +122,10 @@ class BoxSector implements Sector {
         SubSectorType type = determineType(point);
         if (type != null) {
             setSubSector(type, addToSubSector(type, pointSector));
-            updateTreeConstraints();
+            updateTreeConstraints(type);
             return this;
         } else {
-            return createSector(this, pointSector, equalComparator);
+            return new BoxSector(this, pointSector, precision);
         }
     }
 
@@ -75,42 +146,9 @@ class BoxSector implements Sector {
         }
     }
 
-    @Getter(AccessLevel.PACKAGE)
-    private int depth;
-    @Getter(AccessLevel.PACKAGE)
-    private double[] boundaries;
-
-    void calcBoundaries() {
-        if (this.boundaries == null) {
-            this.boundaries = new double[3];
-            depth = findMinEnclosing(this.boundaries, getMin(), getMax());
-        }
-    }
-
     private SubSectorType determineType(Point2d point) {
-        calcBoundaries();
-        return determineType(point, boundaries[0], boundaries[1], boundaries[2]);
+        return determineType(point, topLeft.getX(), topLeft.getY(), len);
     }
-
-    static SubSectorType determineType(Point2d point, double bx, double by, double len) {
-        if (bx <= point.getX() && point.getX() < bx + len && by <= point.getY() && point.getY() < by + len) {
-            if (point.getX() < bx + len / 2) {
-                if (point.getY() < by + len / 2) {
-                    return SubSectorType.NW;
-                } else {
-                    return SubSectorType.NE;
-                }
-            } else {
-                if (point.getY() < by + len / 2) {
-                    return SubSectorType.SW;
-                } else {
-                    return SubSectorType.SE;
-                }
-            }
-        }
-        return null;
-    }
-
 
     private Sector addToSubSector(SubSectorType type, PointSector pointSector) {
         Sector subSector = getSubSector(type);
@@ -118,7 +156,7 @@ class BoxSector implements Sector {
             return pointSector;
         }
         if (subSector instanceof PointSector) {
-            return createSector(subSector, pointSector, equalComparator);
+            return new BoxSector(subSector, pointSector, precision);
         }
         return subSector.add(pointSector);
     }
@@ -132,35 +170,29 @@ class BoxSector implements Sector {
      * @param len    length of side
      */
     private void addToEmptySubSector(Sector sector, double bx, double by, double len) {
-        Point2d topLeft = sector.getMin();
+        Point2d topLeft = sector.getTopLeft();
         SubSectorType type = determineType(topLeft, bx, by, len);
         if (type == null) {
-            String msg = String.format("Top left point %s (sector %s) is outside boundaries: bx=%f by=%f len=%f",
+            String msg = String.format("Top left point %s (sector %s) is outside bounds: bx=%f by=%f len=%f",
                     topLeft, sector, bx, by, len);
             throw new IllegalStateException(msg);
         }
         checkSectorIsNull(type);
         setSubSector(type, sector);
-        updateTreeConstraints();
+        updateTreeConstraints(type);
     }
 
     private void checkSectorIsNull(SubSectorType type) {
         Sector sector = getSubSector(type);
         if (sector != null) {
             String msg = String.format("Sub sector must be null: type=%s, sector=%s", type, sector);
-            throw new IllegalArgumentException(msg);
+            throw new IllegalStateException(msg);
         }
     }
 
     private void updateTreeConstraints(SubSectorType type) {
         Sector subSector = getSubSector(type);
         if (subSector != null) {
-            if (min == null || min.compareTo(subSector.getMin()) > 0) {
-                min = subSector.getMin();
-            }
-            if (max == null || max.compareTo(subSector.getMax()) < 0) {
-                max = subSector.getMax();
-            }
             subSector.setParent(this);
             if (link != null) {
                 if (!(link instanceof BoxSector)) {
@@ -206,56 +238,9 @@ class BoxSector implements Sector {
         }
     }
 
-    private static int findMinEnclosing2(double[] result, Point2d... points) {
-        List<Point2d> pointList = Arrays.asList(points);
-        Point2d min = Collections.min(pointList);
-        Point2d max = Collections.max(pointList);
-        return findMinEnclosing(result, min, max);
-    }
-
-    private static int findMinEnclosing(double[] result, Point2d topLeft, Point2d bottomRight) {
-        double u = topLeft.getY();
-        double v = bottomRight.getY();
-        if (u == v) {
-            u = topLeft.getX();
-            v = bottomRight.getX();
-        }
-        int t = 0;
-        double twoT = 1;
-        while (floor(u) == floor(v)) {
-            u *= 2;
-            v *= 2;
-            ++t;
-            twoT *= 2;
-        }
-        --t;
-        twoT /= 2;
-        // t >= 0: t < 0 => t == -1 => floor(u0) == floor(v0) => u0 = v0 = 1 => two equal points, which violates contract
-        double _twoT = twoT;// / 2;
-        double lx = floor(topLeft.getX() * _twoT) / _twoT;
-        double ly = floor(topLeft.getY() * _twoT) / _twoT;
-        result[0] = lx;
-        result[1] = ly;
-        result[2] = 1 / twoT;
-        return t;
-    }
-
-    public static BoxSector createSector(Sector a, PointSector b, EqualComparator<Point2d> equalComparator) {
-        if (a instanceof PointSector && equalComparator.test(((PointSector) a).getPoint(), b.getPoint())) {
-            throw new PointAlreadyExistsException(b.getPoint());
-        }
-        double[] boundaries = new double[3];
-        findMinEnclosing2(boundaries, a.getMin(), a.getMax(), b.getPoint());
-        BoxSector result = new BoxSector(equalComparator);
-        result.addToEmptySubSector(a, boundaries[0], boundaries[1], boundaries[2]);
-        result.addToEmptySubSector(b, boundaries[0], boundaries[1], boundaries[2]);
-        return result;
-    }
-
     @Override
     public String toString() {
-        calcBoundaries();
-        return String.format("BoxSector(bx=%f, by=%f, len=%f, depth=%d)", boundaries[0], boundaries[1], boundaries[2], depth);
+        return String.format("BoxSector(bx=%f, by=%f, len=%f, depth=%d)", topLeft.getX(), topLeft.getY(), len, depth);
     }
 
 }
