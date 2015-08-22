@@ -11,7 +11,9 @@ import java.util.function.Predicate;
 abstract class AbstractTest extends TestCase {
     void validateSector(Sector sector, Set<Point2d> points) {
         validateSectorImpl(sector, points, null);
-        assertTrue(points.isEmpty());
+        if (points != null) {
+            assertTrue(points.isEmpty());
+        }
     }
 
     private void validateSectorImpl(Sector sector, Set<Point2d> points, Sector parent) {
@@ -25,7 +27,9 @@ abstract class AbstractTest extends TestCase {
         }
         if (sector instanceof PointSector) {
             Point2d point = ((PointSector) sector).getPoint();
-            assertTrue(points.remove(point));
+            if (points != null) {
+                assertTrue(points.remove(point));
+            }
             if (parent != null && parent.getTopLeft() != null) {
                 assertTrue(point.compareTo(parent.getTopLeft()) >= 0);
             }

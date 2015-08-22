@@ -4,7 +4,6 @@ import junit.framework.AssertionFailedError;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.georgeee.itmo.sem5.cg.common.Point2d;
-import ru.georgeee.itmo.sem5.cg.common.PrecisionComparator;
 
 import java.util.*;
 import java.util.function.Function;
@@ -14,6 +13,7 @@ public class BoxSectorTest extends AbstractTest {
     private final Random random = new Random(System.currentTimeMillis());
     private static final int[] RANDOM_TEST_COUNTS = {3, 5, 10, 100, 1000};
     private static final int RANDOM_TEST_REPEAT = 10;
+    private static final int TEST_POINT_EXISTENCE_THRESHOLD = 5000;
 
     private static final double[][] CALC_DEPTH_DATA_SETS = {
             {0, 0.9, 0},
@@ -115,25 +115,45 @@ public class BoxSectorTest extends AbstractTest {
     }
 
     void testPoints(List<Point2d> points, double precision) {
+        boolean testIsNew = points.size() <= TEST_POINT_EXISTENCE_THRESHOLD;
+        Set<Point2d> pointSet = new HashSet<>();
+        Sector sector = null;
         try {
-            Sector sector = null;
-            Set<Point2d> pointSet = new TreeSet<>(new PrecisionComparator(precision));
-            for (Point2d p : points) {
+            for (int i = 0; i < points.size(); ++i) {
+                Point2d p = points.get(i);
                 PointSector pointSector = new PointSector(p, precision);
-                boolean isNewPoint = pointSet.add(p);
+                boolean isNewPoint = true;
+                if (testIsNew) {
+                    for (int j = 0; j < i; ++j) {
+                        Point2d q = points.get(j);
+                        double[] bounds = new double[3];
+                        int depth = BoxSector.findMinEnclosing(bounds, p, q);
+                        if (depth == Integer.MAX_VALUE || bounds[2] < precision) {
+                            isNewPoint = false;
+                            break;
+                        }
+                    }
+                    if(isNewPoint){
+                        pointSet.add(p);
+                    }
+                }
                 if (sector == null) {
                     sector = pointSector;
                 } else {
                     try {
                         sector = sector.add(pointSector);
-                        assertTrue(isNewPoint);
+                        if (testIsNew) {
+                            assertTrue(isNewPoint);
+                        }
                     } catch (PointAlreadyExistsException e) {
 //                        assertTrue(precision.test(e.getPoint(), p));
-                        assertFalse(isNewPoint);
+                        if (testIsNew) {
+                            assertFalse(isNewPoint);
+                        }
                     }
                 }
             }
-            validateSector(sector, pointSet);
+            validateSector(sector, testIsNew ? pointSet : null);
         } catch (AssertionFailedError | RuntimeException e) {
             log.error("Assertion failed, points: {}", points.toString(), e);
             throw e;

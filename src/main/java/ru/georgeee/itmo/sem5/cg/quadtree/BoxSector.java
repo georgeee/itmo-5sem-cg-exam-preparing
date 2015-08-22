@@ -37,7 +37,7 @@ class BoxSector implements Sector {
         double[] bounds = new double[3];
         depth = findMinEnclosing(bounds, a.getTopLeft(), b.getPoint());
         len = bounds[2];
-        if (depth == Integer.MAX_VALUE || (precision > 0 && len / 2 < precision)) {
+        if (depth == Integer.MAX_VALUE || len < precision) {
             throw new PointAlreadyExistsException(b.getPoint());
         }
         topLeft = new Point2d(bounds[0], bounds[1]);
