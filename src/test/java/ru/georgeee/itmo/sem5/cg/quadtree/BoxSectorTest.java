@@ -5,9 +5,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.georgeee.itmo.sem5.cg.common.Point2d;
 
-import java.util.HashSet;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 public class BoxSectorTest extends AbstractTest {
     private static final Logger log = LoggerFactory.getLogger(BoxSectorTest.class);
@@ -74,42 +73,51 @@ public class BoxSectorTest extends AbstractTest {
 
     Void testPoints(List<Point2d> points, double precision) {
         boolean testIsNew = points.size() <= TEST_POINT_EXISTENCE_THRESHOLD;
-        Set<Point2d> pointSet = new HashSet<>();
+        List<Point2d> addedPoints = new ArrayList<>();
         Sector sector = null;
         try {
             for (int i = 0; i < points.size(); ++i) {
                 Point2d p = points.get(i);
-                PointSector pointSector = new PointSector(p, precision);
                 boolean isNewPoint = true;
                 if (testIsNew) {
                     for (int j = 0; j < i; ++j) {
                         Point2d q = points.get(j);
-                        if(BoxSector.checkEquals(p, q, precision)){
+                        if (BoxSector.checkEquals(p, q, precision)) {
                             isNewPoint = false;
                             break;
                         }
                     }
                     if (isNewPoint) {
-                        pointSet.add(p);
+                        addedPoints.add(p);
                     }
                 }
                 if (sector == null) {
-                    sector = pointSector;
+                    sector = new PointSector(p, precision);
                 } else {
                     try {
-                        sector = sector.add(pointSector);
+                        sector = sector.add(p);
                         if (testIsNew) {
                             assertTrue(isNewPoint);
                         }
                     } catch (PointAlreadyExistsException e) {
-//                        assertTrue(precision.test(e.getPoint(), p));
                         if (testIsNew) {
                             assertFalse(isNewPoint);
                         }
                     }
                 }
             }
-            validateSector(sector, testIsNew ? pointSet : null);
+            if (testIsNew) {
+                validateSector(sector, addedPoints);
+                assertNotNull(sector);
+                int halfSize = addedPoints.size() / 2;
+                for (int i = addedPoints.size() - 1; i > halfSize; --i) {
+                    Point2d point = addedPoints.get(i);
+                    sector = sector.remove(point);
+                }
+                validateSector(sector, addedPoints);
+            } else {
+                validateSector(sector, null);
+            }
         } catch (AssertionFailedError | RuntimeException e) {
             log.error("Assertion failed, points: {}", points.toString(), e);
             throw e;

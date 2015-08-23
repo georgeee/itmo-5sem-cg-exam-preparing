@@ -25,12 +25,11 @@ public class CompressedQuadTree implements QuadTree {
 
     @Override
     public boolean add(Point2d point) {
-        PointSector newSector = new PointSector(point, precision);
         if (root == null) {
-            root = newSector;
+            root = new PointSector(point, precision);
         } else {
             try {
-                root = root.add(newSector);
+                root = root.add(point);
             } catch (PointAlreadyExistsException e) {
                 return false;
             }

@@ -11,7 +11,7 @@ interface Sector {
 
     boolean contains(Point2d point);
 
-    BoxSector add(PointSector pointSector);
+    BoxSector add(Point2d pointSector);
 
     Sector remove(Point2d point);
 }

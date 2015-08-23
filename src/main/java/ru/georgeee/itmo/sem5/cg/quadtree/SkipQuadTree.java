@@ -61,13 +61,12 @@ public class SkipQuadTree implements QuadTree {
         try {
             for (i = 0; i < layers.size(); ++i) {
                 if (i > 0 && !coin.decide(i, point)) break;
-                PointSector pointSector = new PointSector(point, precision);
                 BoxSector pred = predChain.get(i);
                 if (pred == null) {
                     //Cause every layer is [0;0]-[1;1] square, we can be sure, layer's head remain invariable
-                    layers.get(i).add(pointSector);
+                    layers.get(i).add(point);
                 } else {
-                    BoxSector pred2 = pred.add(pointSector);
+                    BoxSector pred2 = pred.add(point);
                     if (pred2 != pred) {
                         throw new IllegalStateException("Predecessor shouldn't change when adding: " + pred + " != " + pred2);
                     }
@@ -79,7 +78,7 @@ public class SkipQuadTree implements QuadTree {
                     if (i > 0) {
                         boxSector.setLink(layers.get(i - 1));
                     }
-                    boxSector.add(new PointSector(point, precision));
+                    boxSector.add(point);
                     layers.add(boxSector);
                 }
             }

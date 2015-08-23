@@ -18,10 +18,13 @@ abstract class AbstractTest extends TestCase {
     private static final int RANDOM_TEST_REPEAT = 10;
     final Random random = new Random(System.currentTimeMillis());
 
-    void validateSector(Sector sector, Set<Point2d> points) {
-        validateSectorImpl(sector, points, null);
-        if (points != null) {
+    void validateSector(Sector sector, Collection<Point2d> addedPoints) {
+        if (addedPoints != null) {
+            Set<Point2d> points = new HashSet<>(addedPoints);
+            validateSectorImpl(sector, points, null);
             assertTrue(points.isEmpty());
+        } else {
+            validateSectorImpl(sector, null, null);
         }
     }
 
@@ -131,7 +134,7 @@ abstract class AbstractTest extends TestCase {
                 points.add(genRandomPoint());
             }
             testFunction.apply(points);
-            log.info("--- round #{} completed, {}ms", i, (System.currentTimeMillis()-time));
+            log.info("--- round #{} completed, {}ms", i, (System.currentTimeMillis() - time));
         }
     }
 

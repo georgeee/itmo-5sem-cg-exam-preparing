@@ -35,8 +35,8 @@ class PointSector implements Sector {
     }
 
     @Override
-    public BoxSector add(PointSector pointSector) {
-        return new BoxSector(this, pointSector, precision);
+    public BoxSector add(Point2d point) {
+        return new BoxSector(this, new PointSector(point, precision), precision);
     }
 
     @Override

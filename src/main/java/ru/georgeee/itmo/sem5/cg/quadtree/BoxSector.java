@@ -136,8 +136,8 @@ class BoxSector implements Sector {
     }
 
     @Override
-    public BoxSector add(PointSector pointSector) {
-        Point2d point = pointSector.getPoint();
+    public BoxSector add(Point2d point) {
+        PointSector pointSector = new PointSector(point, precision);
         SubSectorType type = determineType(point);
         if (type != null) {
             BoxSector endSector = findLowestPredecessor(point);
@@ -145,11 +145,8 @@ class BoxSector implements Sector {
             Sector subSector = endSector.getSubSector(endType);
             if (subSector == null) {
                 endSector.setSubSector(endType, pointSector);
-            } else if (subSector instanceof PointSector) {
-                endSector.setSubSector(endType, new BoxSector(subSector, pointSector, precision));
             } else {
-                String msg = String.format("Lowest predecessor for point=%s should contain PointSector, %s found instead (pred=%s)", point, subSector, subSector);
-                throw new IllegalStateException(msg);
+                endSector.setSubSector(endType, new BoxSector(subSector, pointSector, precision));
             }
             return this;
         } else {
@@ -182,9 +179,6 @@ class BoxSector implements Sector {
                     }
                 }
             }
-        } else {
-            String msg = String.format("Lowest predecessor for point=%s should contain PointSector, %s found instead (pred=%s)", point, subSector, subSector);
-            throw new IllegalStateException(msg);
         }
         throw new PointIsAbsentException(point);
     }
