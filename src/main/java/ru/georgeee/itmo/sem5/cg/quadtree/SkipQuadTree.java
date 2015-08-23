@@ -41,7 +41,15 @@ public class SkipQuadTree implements QuadTree {
 
     @Override
     public boolean contains(Point2d point) {
-        return false;
+        if (BoxSector.checkEquals(ZERO_POINT, point, precision)) {
+            return containsZero;
+        }
+        if (BoxSector.checkEquals(ONE_POINT, point, precision)) {
+            return containsOne;
+        }
+        if (layers.isEmpty()) return false;
+        List<BoxSector> predChain = getPredecessorChain(point);
+        return predChain.get(0).contains(point);
     }
 
     @Override
@@ -73,7 +81,7 @@ public class SkipQuadTree implements QuadTree {
                 }
             }
             if (i == layers.size()) {
-                for (i = layers.size(); coin.decide(i, point); ++i) {
+                for (i = layers.size(); i == 0 || coin.decide(i, point); ++i) {
                     BoxSector boxSector = new BoxSector(ZERO_POINT, ONE_POINT, precision);
                     if (i > 0) {
                         boxSector.setLink(layers.get(i - 1));

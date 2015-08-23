@@ -8,7 +8,7 @@ public class SkipQuadTreeLargeTest extends AbstractTest {
 
     public void testRandom() {
         log.info("Testing random points");
-        testRandomPointsLarge(ps -> testSquadTree(ps, 0, null));
+        testRandomPointsLarge(ps -> testSkipQuadTree(ps, 0, null));
     }
 
 }

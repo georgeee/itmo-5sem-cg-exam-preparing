@@ -104,6 +104,7 @@ public class BoxSectorTest extends AbstractTest {
                             assertFalse(isNewPoint);
                         }
                     }
+                    assertTrue(sector.contains(p));
                 }
             }
             if (testIsNew) {
@@ -112,7 +113,15 @@ public class BoxSectorTest extends AbstractTest {
                 int halfSize = addedPoints.size() / 2;
                 for (int i = addedPoints.size() - 1; i > halfSize; --i) {
                     Point2d point = addedPoints.get(i);
+                    assertTrue(sector.contains(point));
+                    addedPoints.remove(i);
                     sector = sector.remove(point);
+                    try {
+                        sector = sector.remove(point);
+                        assertTrue(false);
+                    }catch (PointIsAbsentException e){
+                    }
+                    assertFalse(sector.contains(point));
                 }
                 validateSector(sector, addedPoints);
             } else {

@@ -157,25 +157,41 @@ abstract class AbstractTest extends TestCase {
     }
 
 
-    Void testSquadTree(List<Point2d> points, double precision, Coin coin) {
+    Void testSkipQuadTree(List<Point2d> points, double precision, Coin coin) {
+        SkipQuadTree quadTree = new SkipQuadTree(coin, precision);
+        List<Point2d> addedPoints = new ArrayList<>();
         try {
-            SkipQuadTree quadTree = new SkipQuadTree(coin, precision);
             for (Point2d point : points) {
-                quadTree.add(point);
+                if (quadTree.add(point)) {
+                    addedPoints.add(point);
+                }
+                assertTrue(quadTree.contains(point));
             }
-            for (BoxSector layer : quadTree.layers) {
-                validateSector(layer, null);
+            validateSkipQuadTree(quadTree);
+            for (int i = 0; i < addedPoints.size() / 2; ++i) {
+                Point2d point = addedPoints.get(i);
+                assertTrue(quadTree.contains(point));
+                assertTrue(quadTree.remove(point));
+                assertFalse(quadTree.remove(point));
+                assertFalse(quadTree.contains(point));
             }
-            for (int i = 1; i < quadTree.layers.size(); ++i) {
-                BoxSector layer = quadTree.layers.get(i);
-                BoxSector prevLayer = quadTree.layers.get(i - 1);
-                checkLinks(layer, prevLayer);
-            }
+            validateSkipQuadTree(quadTree);
         } catch (AssertionError | AssertionFailedError | RuntimeException e) {
             log.error("Assertion failed, points: {}", points.toString(), e);
             throw e;
         }
         return null;
+    }
+
+    void validateSkipQuadTree(SkipQuadTree quadTree) {
+        for (BoxSector layer : quadTree.layers) {
+            validateSector(layer, null);
+        }
+        for (int i = 1; i < quadTree.layers.size(); ++i) {
+            BoxSector layer = quadTree.layers.get(i);
+            BoxSector prevLayer = quadTree.layers.get(i - 1);
+            checkLinks(layer, prevLayer);
+        }
     }
 
     static class ToggleCoin implements Coin {

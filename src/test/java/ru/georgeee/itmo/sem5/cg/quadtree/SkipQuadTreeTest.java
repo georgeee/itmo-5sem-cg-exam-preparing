@@ -11,12 +11,12 @@ public class SkipQuadTreeTest extends AbstractTest {
 
     public void testRandom() {
         log.info("Testing random points");
-        testOnCoins(coin -> testOnPrecisions(prec -> testRandomPoints(ps -> testSquadTree(ps, prec, coin))));
+        testOnCoins(coin -> testOnPrecisions(prec -> testRandomPoints(ps -> testSkipQuadTree(ps, prec, coin))));
     }
 
     public void testManual() {
         log.info("Testing manually set point sets");
-        testOnCoins(coin -> testOnPrecisions(prec -> testManual(ps -> testSquadTree(ps, prec, coin), MANUAL_DATA_SETS)));
+        testOnCoins(coin -> testOnPrecisions(prec -> testManual(ps -> testSkipQuadTree(ps, prec, coin), MANUAL_DATA_SETS)));
     }
 
 }

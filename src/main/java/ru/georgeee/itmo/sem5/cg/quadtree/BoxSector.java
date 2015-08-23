@@ -125,12 +125,10 @@ class BoxSector implements Sector {
         BoxSector bs = findLowestPredecessor(point);
         if (bs != null) {
             SubSectorType type = bs.determineType(point);
-            Sector subSector = getSubSector(type);
-            if (!(subSector instanceof PointSector)) {
-                String msg = String.format("Lowest predecessor for point=%s should contain PointSector, %s found instead (pred=%s)", point, subSector, bs);
-                throw new IllegalStateException(msg);
+            Sector subSector = bs.getSubSector(type);
+            if (subSector instanceof PointSector) {
+                return subSector.contains(point);
             }
-            return subSector.contains(point);
         }
         return false;
     }
@@ -157,26 +155,29 @@ class BoxSector implements Sector {
     @Override
     public Sector remove(Point2d point) {
         BoxSector endSector = findLowestPredecessor(point);
-        SubSectorType endType = endSector.determineType(point);
-        Sector subSector = endSector.getSubSector(endType);
-        if (subSector instanceof PointSector) {
-            PointSector pointSector = (PointSector) subSector;
-            if (BoxSector.checkEquals(pointSector.getPoint(), point, precision)) {
-                endSector.setSubSector(endType, null);
-                if (endSector.countNonNull() < 2) {
-                    Sector nonNullSector = endSector.getNonNull();
-                    BoxSector parent = endSector.getParent();
-                    if (parent == null) {
-                        if (endSector != this) {
-                            String msg = String.format("endSector=%s != this=%s, although it's parent is null", endSector, this);
-                            throw new IllegalStateException(msg);
+        if (endSector != null) {
+            SubSectorType endType = endSector.determineType(point);
+            Sector subSector = endSector.getSubSector(endType);
+            if (subSector instanceof PointSector) {
+                PointSector pointSector = (PointSector) subSector;
+                if (BoxSector.checkEquals(pointSector.getPoint(), point, precision)) {
+                    endSector.setSubSector(endType, null);
+                    if (endSector.countNonNull() < 2) {
+                        Sector nonNullSector = endSector.getNonNull();
+                        BoxSector parent = endSector.getParent();
+                        if (parent == null) {
+                            if (endSector != this) {
+                                String msg = String.format("endSector=%s != this=%s, although it's parent is null", endSector, this);
+                                throw new IllegalStateException(msg);
+                            }
+                            nonNullSector.setParent(parent);
+                            return nonNullSector;
+                        } else {
+                            SubSectorType parentType = parent.determineType(endSector.getTopLeft());
+                            parent.setSubSector(parentType, nonNullSector);
                         }
-                        return nonNullSector;
-                    } else {
-                        SubSectorType parentType = parent.determineType(endSector.getTopLeft());
-                        parent.setSubSector(parentType, nonNullSector);
-                        return this;
                     }
+                    return this;
                 }
             }
         }
