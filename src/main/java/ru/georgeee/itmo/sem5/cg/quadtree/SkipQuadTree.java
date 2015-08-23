@@ -8,10 +8,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
-/**
- * Basic compressed QuadTree for 1x1 square
- */
-
 public class SkipQuadTree implements QuadTree {
     private final Coin coin;
     private final double precision;

@@ -1,5 +1,6 @@
 package ru.georgeee.itmo.sem5.cg.quadtree;
 
+import junit.framework.AssertionFailedError;
 import junit.framework.TestCase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,6 +12,8 @@ import java.util.function.Predicate;
 
 abstract class AbstractTest extends TestCase {
     private static final Logger log = LoggerFactory.getLogger(AbstractTest.class);
+    private static final int[] LARGE_RANDOM_TEST_COUNTS = {20000, 50000, 100000, 1000000};
+    private static final int LARGE_RANDOM_TEST_REPEAT = 3;
     private static final int[] RANDOM_TEST_COUNTS = {3, 5, 10, 100, 1000};
     private static final int RANDOM_TEST_REPEAT = 10;
     final Random random = new Random(System.currentTimeMillis());
@@ -71,11 +74,23 @@ abstract class AbstractTest extends TestCase {
         }
     }
 
+    Void testManual(Function<List<Point2d>, ?> handler, double[][] datasets) {
+        for (double[] data : datasets) {
+            List<Point2d> points = new ArrayList<>();
+            for (int i = 0; i < data.length / 2; ++i) {
+                points.add(new Point2d(data[2 * i], data[2 * i + 1]));
+            }
+            handler.apply(points);
+        }
+        return null;
+    }
+
+
     Point2d genRandomPoint() {
         return new Point2d(random.nextDouble(), random.nextDouble());
     }
 
-    Void testOnPrecisions(Function<Double, Void> f) {
+    Void testOnPrecisions(Function<Double, ?> f) {
         log.info("Testing on fair comparator");
         f.apply(0.0);
         log.info("Testing on precision 10^-9");
@@ -89,22 +104,83 @@ abstract class AbstractTest extends TestCase {
         return null;
     }
 
-    Void testRandomPoints(Function<List<Point2d>, Void> testFunction) {
-        for (int count : RANDOM_TEST_COUNTS) {
-            testRandomPoints(count, testFunction);
+    Void testRandomPointsLarge(Function<List<Point2d>, ?> testFunction) {
+        testRandomPoints(testFunction, LARGE_RANDOM_TEST_COUNTS, LARGE_RANDOM_TEST_REPEAT);
+        return null;
+    }
+
+    Void testRandomPoints(Function<List<Point2d>, ?> testFunction) {
+        testRandomPoints(testFunction, RANDOM_TEST_COUNTS, RANDOM_TEST_REPEAT);
+        return null;
+    }
+
+    Void testRandomPoints(Function<List<Point2d>, ?> testFunction, int[] counts, int repeat) {
+        for (int count : counts) {
+            testRandomPoints(testFunction, count, repeat);
         }
         return null;
     }
 
-    void testRandomPoints(int count, Function<List<Point2d>, Void> testFunction) {
+    void testRandomPoints(Function<List<Point2d>, ?> testFunction, int count, int repeat) {
         log.info("Random: testing count {}", count);
-        for (int i = 0; i < RANDOM_TEST_REPEAT; ++i) {
+        for (int i = 0; i < repeat; ++i) {
             log.info("Random: test round #{}", i);
+            long time = System.currentTimeMillis();
             List<Point2d> points = new ArrayList<>();
             for (int j = 0; j < count; ++j) {
                 points.add(genRandomPoint());
             }
             testFunction.apply(points);
+            log.info("--- round #{} completed, {}ms", i, (System.currentTimeMillis()-time));
+        }
+    }
+
+    void checkLinks(BoxSector layer, BoxSector prevLayer) {
+        BoxSector realLink = prevLayer.findUnderlying(layer.getTopLeft(), layer.getDepth());
+        assertTrue(layer.getLink() == realLink);
+        for (SubSectorType type : SubSectorType.values()) {
+            if (layer.getSubSector(type) instanceof BoxSector) {
+                BoxSector subSector = (BoxSector) layer.getSubSector(type);
+                checkLinks(subSector, realLink);
+            }
+        }
+    }
+
+    void testOnCoins(Function<Coin, ?> tester) {
+        log.info("Testing on toggle coin");
+        tester.apply(new ToggleCoin());
+        log.info("Testing on fair random coin");
+        tester.apply(null);
+    }
+
+
+    Void testSquadTree(List<Point2d> points, double precision, Coin coin) {
+        try {
+            SkipQuadTree quadTree = new SkipQuadTree(coin, precision);
+            for (Point2d point : points) {
+                quadTree.add(point);
+            }
+            for (BoxSector layer : quadTree.layers) {
+                validateSector(layer, null);
+            }
+            for (int i = 1; i < quadTree.layers.size(); ++i) {
+                BoxSector layer = quadTree.layers.get(i);
+                BoxSector prevLayer = quadTree.layers.get(i - 1);
+                checkLinks(layer, prevLayer);
+            }
+        } catch (AssertionError | AssertionFailedError | RuntimeException e) {
+            log.error("Assertion failed, points: {}", points.toString(), e);
+            throw e;
+        }
+        return null;
+    }
+
+    static class ToggleCoin implements Coin {
+        private boolean toggle;
+
+        @Override
+        public boolean decide(int layer, Point2d point) {
+            return toggle = !toggle;
         }
     }
 

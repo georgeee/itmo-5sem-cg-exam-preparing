@@ -121,6 +121,21 @@ class BoxSector implements Sector {
     }
 
     @Override
+    public boolean contains(Point2d point) {
+        BoxSector bs = findLowestPredecessor(point);
+        if (bs != null) {
+            SubSectorType type = bs.determineType(point);
+            Sector subSector = getSubSector(type);
+            if (!(subSector instanceof PointSector)) {
+                String msg = String.format("Lowest predecessor for point=%s should contain PointSector, %s found instead (pred=%s)", point, subSector, bs);
+                throw new IllegalStateException(msg);
+            }
+            return subSector.contains(point);
+        }
+        return false;
+    }
+
+    @Override
     public BoxSector add(PointSector pointSector) {
         Point2d point = pointSector.getPoint();
         SubSectorType type = determineType(point);
@@ -264,7 +279,7 @@ class BoxSector implements Sector {
         return String.format("BoxSector(bx=%f, by=%f, len=%f, depth=%d)", topLeft.getX(), topLeft.getY(), len, depth);
     }
 
-    public static boolean checkEquals(Point2d p, Point2d q, double precision){
+    public static boolean checkEquals(Point2d p, Point2d q, double precision) {
         double[] bounds = new double[3];
         int depth = BoxSector.findMinEnclosing(bounds, p, q);
         return depth == Integer.MAX_VALUE || bounds[2] < precision;

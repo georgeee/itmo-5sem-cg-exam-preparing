@@ -12,7 +12,8 @@ class PointSector implements Sector {
     @Getter
     private final Point2d point;
     private final double precision;
-    @Getter @Setter
+    @Getter
+    @Setter
     private BoxSector parent;
 
     public PointSector(Point2d point, double precision) {
@@ -26,6 +27,11 @@ class PointSector implements Sector {
     @Override
     public Point2d getTopLeft() {
         return point;
+    }
+
+    @Override
+    public boolean contains(Point2d point) {
+        return BoxSector.checkEquals(this.point, point, precision);
     }
 
     @Override

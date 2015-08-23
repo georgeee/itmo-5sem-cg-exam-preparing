@@ -9,5 +9,7 @@ interface Sector {
 
     void setParent(BoxSector s);
 
+    boolean contains(Point2d point);
+
     BoxSector add(PointSector pointSector);
 }

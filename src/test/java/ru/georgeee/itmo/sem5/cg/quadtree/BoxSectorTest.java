@@ -5,7 +5,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.georgeee.itmo.sem5.cg.common.Point2d;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -70,18 +69,7 @@ public class BoxSectorTest extends AbstractTest {
 
     public void testManual() {
         log.info("Testing manually set point sets");
-        testOnPrecisions(this::testManual);
-    }
-
-    Void testManual(double precision) {
-        for (double[] data : MANUAL_DATA_SETS) {
-            List<Point2d> points = new ArrayList<>();
-            for (int i = 0; i < data.length / 2; ++i) {
-                points.add(new Point2d(data[2 * i], data[2 * i + 1]));
-            }
-            testPoints(points, precision);
-        }
-        return null;
+        testOnPrecisions(prec -> testManual(ps -> testPoints(ps, prec), MANUAL_DATA_SETS));
     }
 
     Void testPoints(List<Point2d> points, double precision) {
