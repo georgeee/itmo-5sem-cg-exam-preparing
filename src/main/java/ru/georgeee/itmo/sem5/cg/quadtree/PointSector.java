@@ -40,6 +40,14 @@ class PointSector implements Sector {
     }
 
     @Override
+    public BoxSector remove(Point2d point) {
+        if (BoxSector.checkEquals(this.point, point, precision)) {
+            return null;
+        }
+        throw new PointIsAbsentException(point);
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (!(o instanceof PointSector)) return false;

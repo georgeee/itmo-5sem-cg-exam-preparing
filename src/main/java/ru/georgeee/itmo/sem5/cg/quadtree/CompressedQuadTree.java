@@ -40,6 +40,13 @@ public class CompressedQuadTree implements QuadTree {
 
     @Override
     public boolean remove(Point2d point) {
+        if (root != null) {
+            try {
+                root = root.remove(point);
+                return true;
+            } catch (PointIsAbsentException e) {
+            }
+        }
         return false;
     }
 

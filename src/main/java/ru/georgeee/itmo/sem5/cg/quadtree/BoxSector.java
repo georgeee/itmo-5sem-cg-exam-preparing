@@ -140,12 +140,70 @@ class BoxSector implements Sector {
         Point2d point = pointSector.getPoint();
         SubSectorType type = determineType(point);
         if (type != null) {
-            setSubSector(type, addToSubSector(type, pointSector));
-            updateTreeConstraints(type);
+            BoxSector endSector = findLowestPredecessor(point);
+            SubSectorType endType = endSector.determineType(point);
+            Sector subSector = endSector.getSubSector(endType);
+            if (subSector == null) {
+                endSector.setSubSector(endType, pointSector);
+            } else if (subSector instanceof PointSector) {
+                endSector.setSubSector(endType, new BoxSector(subSector, pointSector, precision));
+            } else {
+                String msg = String.format("Lowest predecessor for point=%s should contain PointSector, %s found instead (pred=%s)", point, subSector, subSector);
+                throw new IllegalStateException(msg);
+            }
             return this;
         } else {
             return new BoxSector(this, pointSector, precision);
         }
+    }
+
+    @Override
+    public Sector remove(Point2d point) {
+        BoxSector endSector = findLowestPredecessor(point);
+        SubSectorType endType = endSector.determineType(point);
+        Sector subSector = endSector.getSubSector(endType);
+        if (subSector instanceof PointSector) {
+            PointSector pointSector = (PointSector) subSector;
+            if (BoxSector.checkEquals(pointSector.getPoint(), point, precision)) {
+                endSector.setSubSector(endType, null);
+                if (endSector.countNonNull() < 2) {
+                    Sector nonNullSector = endSector.getNonNull();
+                    BoxSector parent = endSector.getParent();
+                    if (parent == null) {
+                        if (endSector != this) {
+                            String msg = String.format("endSector=%s != this=%s, although it's parent is null", endSector, this);
+                            throw new IllegalStateException(msg);
+                        }
+                        return nonNullSector;
+                    } else {
+                        SubSectorType parentType = parent.determineType(endSector.getTopLeft());
+                        parent.setSubSector(parentType, nonNullSector);
+                        return this;
+                    }
+                }
+            }
+        } else {
+            String msg = String.format("Lowest predecessor for point=%s should contain PointSector, %s found instead (pred=%s)", point, subSector, subSector);
+            throw new IllegalStateException(msg);
+        }
+        throw new PointIsAbsentException(point);
+    }
+
+    Sector getNonNull() {
+        if (nw != null) return nw;
+        if (ne != null) return ne;
+        if (sw != null) return sw;
+        if (se != null) return se;
+        throw new IllegalStateException("Box sector contains 0 entries: should have been at least 1: " + this);
+    }
+
+    int countNonNull() {
+        int counter = 0;
+        if (nw != null) counter++;
+        if (ne != null) counter++;
+        if (sw != null) counter++;
+        if (se != null) counter++;
+        return counter;
     }
 
     public BoxSector findLowestPredecessor(Point2d point) {
@@ -155,28 +213,14 @@ class BoxSector implements Sector {
             if (subSector == null || subSector instanceof PointSector) {
                 return this;
             }
-            return ((BoxSector) subSector).findLowestPredecessor(point);
-        } else {
-            //We can't dig down any more, so we return parent
-            //Parent is obviously a predecessor (null - whole 1x1 square), cause if it wasn't recursion would stop
-            //some steps earlier
-            return getParent();
+            BoxSector pred = ((BoxSector) subSector).findLowestPredecessor(point);
+            return pred == null ? this : pred;
         }
+        return null;
     }
 
     private SubSectorType determineType(Point2d point) {
         return determineType(point, topLeft.getX(), topLeft.getY(), len);
-    }
-
-    private Sector addToSubSector(SubSectorType type, PointSector pointSector) {
-        Sector subSector = getSubSector(type);
-        if (subSector == null) {
-            return pointSector;
-        }
-        if (subSector instanceof PointSector) {
-            return new BoxSector(subSector, pointSector, precision);
-        }
-        return subSector.add(pointSector);
     }
 
     /**
@@ -197,7 +241,6 @@ class BoxSector implements Sector {
         }
         checkSectorIsNull(type);
         setSubSector(type, sector);
-        updateTreeConstraints(type);
     }
 
     private void checkSectorIsNull(SubSectorType type) {
@@ -242,19 +285,23 @@ class BoxSector implements Sector {
             switch (type) {
                 case NW:
                     nw = value;
-                    return;
+                    break;
                 case NE:
                     ne = value;
-                    return;
+                    break;
                 case SE:
                     se = value;
-                    return;
+                    break;
                 case SW:
                     sw = value;
-                    return;
+                    break;
+                default:
+                    throw new IllegalStateException("Unknown type: " + type);
             }
+            updateTreeConstraints(type);
+        } else {
+            throw new IllegalStateException("Null type supplied");
         }
-        throw new IllegalStateException("Unknown type: " + type);
     }
 
     BoxSector findUnderlying(Point2d topLeft, int depth) {

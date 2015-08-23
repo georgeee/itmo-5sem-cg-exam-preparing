@@ -46,8 +46,8 @@ abstract class AbstractTest extends TestCase {
             assertTrue(sector instanceof BoxSector);
             BoxSector boxSector = (BoxSector) sector;
             List<SubSectorType> allTypes = Arrays.asList(SubSectorType.values());
+            assertTrue(boxSector.countNonNull() >= 2);
             Predicate<SubSectorType> notNull = t -> boxSector.getSubSector(t) != null;
-            assertTrue(allTypes.stream().filter(notNull).count() >= 2);
             allTypes.stream().filter(notNull).forEach(type -> {
                 checkWithin(type, boxSector);
                 Sector subSector = boxSector.getSubSector(type);
