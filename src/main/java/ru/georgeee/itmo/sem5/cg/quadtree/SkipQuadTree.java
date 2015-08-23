@@ -4,6 +4,7 @@ import ru.georgeee.itmo.sem5.cg.common.Point2d;
 import ru.georgeee.itmo.sem5.cg.common.Utils;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
@@ -15,10 +16,17 @@ public class SkipQuadTree implements QuadTree {
     private final Coin coin;
     private final double precision;
 
-    private final List<Sector> layers = new ArrayList<>();
+    private static final double CLOSEST_TO_ONE = Double.longBitsToDouble(0x3fefffffffffffffL); //0.9999...
+    private static final Point2d ZERO_POINT = new Point2d(0, 0);
+    private static final Point2d ONE_POINT = new Point2d(CLOSEST_TO_ONE, CLOSEST_TO_ONE);
+
+
+    private boolean containsZero, containsOne;
+
+    final List<BoxSector> layers = new ArrayList<>();
 
     public SkipQuadTree() {
-        this(createRandomCoin(), 0);
+        this(null, 0);
     }
 
     public SkipQuadTree(Coin coin) {
@@ -26,7 +34,7 @@ public class SkipQuadTree implements QuadTree {
     }
 
     public SkipQuadTree(Coin coin, double precision) {
-        this.coin = coin;
+        this.coin = coin != null ? coin : createRandomCoin();
         this.precision = precision;
     }
 
@@ -42,54 +50,62 @@ public class SkipQuadTree implements QuadTree {
 
     @Override
     public boolean add(Point2d point) {
-        List<Sector> predChain = getPredecessorChain(point);
-        for (int i = 0; i < layers.size() + 1; ++i) {
-            if (i > 0 && coin.decide(i, point)) break;
-            PointSector pointSector = new PointSector(point, precision);
+        if (BoxSector.checkEquals(ZERO_POINT, point, precision)) {
+            return (containsZero = !containsZero);
+        }
+        if (BoxSector.checkEquals(ONE_POINT, point, precision)) {
+            return (containsOne = !containsOne);
+        }
+        List<BoxSector> predChain = getPredecessorChain(point);
+        int i = 0;
+        try {
+            for (i = 0; i < layers.size(); ++i) {
+                if (i > 0 && !coin.decide(i, point)) break;
+                PointSector pointSector = new PointSector(point, precision);
+                BoxSector pred = predChain.get(i);
+                if (pred == null) {
+                    //Cause every layer is [0;0]-[1;1] square, we can be sure, layer's head remain invariable
+                    layers.get(i).add(pointSector);
+                } else {
+                    BoxSector pred2 = pred.add(pointSector);
+                    if (pred2 != pred) {
+                        throw new IllegalStateException("Predecessor shouldn't change when adding: " + pred + " != " + pred2);
+                    }
+                }
+            }
             if (i == layers.size()) {
-                layers.add(pointSector);
-                if (i > 0) {
-                    pointSector.setLink(layers.get(i - 1));
+                for (i = layers.size(); coin.decide(i, point); ++i) {
+                    BoxSector boxSector = new BoxSector(ZERO_POINT, ONE_POINT, precision);
+                    if (i > 0) {
+                        boxSector.setLink(layers.get(i - 1));
+                    }
+                    boxSector.add(new PointSector(point, precision));
+                    layers.add(boxSector);
                 }
+            }
+        } catch (PointAlreadyExistsException e) {
+            if (i == 0) {
+                return false;
             } else {
-                try {
-                    Sector pred = predChain.get(i);
-                    if (pred == null) {
-                        Sector newSector = layers.get(i).add(pointSector);
-                        if (i > 0) {
-                            newSector.setLink(layers.get(i - 1));
-                        }
-                        layers.set(i, newSector);
-                    } else {
-                        Sector pred2 = pred.add(pointSector);
-                        if (pred2 != pred) {
-                            throw new IllegalStateException("Predecessor shouldn't change when adding: " + pred + " != " + pred2);
-                        }
-                    }
-                } catch (PointAlreadyExistsException e) {
-                    if (i == 0) {
-                        return false;
-                    } else {
-                        throw new IllegalStateException("Point exists in upper layer, being absent at lower", e);
-                    }
-                }
+                throw new IllegalStateException("Point exists in upper layer, being absent at lower", e);
             }
         }
         return true;
     }
 
-    private List<Sector> getPredecessorChain(Point2d point) {
-        List<Sector> predChain = new ArrayList<>(layers.size());
-        Sector lastLink = null;
-        for (int i = layers.size() - 1; i >= 0; ++i) {
+    private List<BoxSector> getPredecessorChain(Point2d point) {
+        List<BoxSector> predChain = new ArrayList<>(layers.size());
+        BoxSector lastLink = null;
+        for (int i = layers.size() - 1; i >= 0; --i) {
             if (lastLink == null) {
                 lastLink = layers.get(i);
                 assert i == layers.size() - 1;
             }
-            Sector pred = lastLink.findLowestPredecessor(point);
+            BoxSector pred = lastLink.findLowestPredecessor(point);
             predChain.add(pred);
             lastLink = pred.getLink();
         }
+        Collections.reverse(predChain);
         return predChain;
     }
 

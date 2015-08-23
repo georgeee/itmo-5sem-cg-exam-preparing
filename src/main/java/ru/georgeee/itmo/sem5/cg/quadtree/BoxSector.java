@@ -27,10 +27,14 @@ class BoxSector implements Sector {
     private Sector nw, ne, sw, se;
     @Getter
     @Setter
-    private Sector link;
+    private BoxSector link;
     @Getter
     @Setter
-    private Sector parent;
+    private BoxSector parent;
+
+    public BoxSector(Point2d a, Point2d b, double precision) {
+        this(new PointSector(a, precision), new PointSector(b, precision), precision);
+    }
 
     public BoxSector(Sector a, PointSector b, double precision) {
         this.precision = precision;
@@ -117,7 +121,7 @@ class BoxSector implements Sector {
     }
 
     @Override
-    public Sector add(PointSector pointSector) {
+    public BoxSector add(PointSector pointSector) {
         Point2d point = pointSector.getPoint();
         SubSectorType type = determineType(point);
         if (type != null) {
@@ -129,15 +133,14 @@ class BoxSector implements Sector {
         }
     }
 
-    @Override
-    public Sector findLowestPredecessor(Point2d point) {
+    public BoxSector findLowestPredecessor(Point2d point) {
         SubSectorType type = determineType(point);
         if (type != null) {
             Sector subSector = getSubSector(type);
             if (subSector == null || subSector instanceof PointSector) {
                 return this;
             }
-            return subSector.findLowestPredecessor(point);
+            return ((BoxSector) subSector).findLowestPredecessor(point);
         } else {
             //We can't dig down any more, so we return parent
             //Parent is obviously a predecessor (null - whole 1x1 square), cause if it wasn't recursion would stop
@@ -194,53 +197,77 @@ class BoxSector implements Sector {
         Sector subSector = getSubSector(type);
         if (subSector != null) {
             subSector.setParent(this);
+        }
+        if (subSector instanceof BoxSector) {
+            BoxSector boxSubSector = (BoxSector) getSubSector(type);
             if (link != null) {
-                if (!(link instanceof BoxSector)) {
-                    String msg = String.format("Link from box sector should be box sector itself: this=%s link=%s", this, link);
-                    throw new IllegalStateException(msg);
-                }
-                subSector.setLink(((BoxSector) link).getSubSector(type));
+                boxSubSector.setLink(link.findUnderlying(boxSubSector.topLeft, boxSubSector.depth));
             }
         }
     }
 
     Sector getSubSector(SubSectorType type) {
-        switch (type) {
-            case NW:
-                return nw;
-            case NE:
-                return ne;
-            case SE:
-                return se;
-            case SW:
-                return sw;
-            default:
-                throw new IllegalStateException("Unknown type: " + type);
+        if (type != null) {
+            switch (type) {
+                case NW:
+                    return nw;
+                case NE:
+                    return ne;
+                case SE:
+                    return se;
+                case SW:
+                    return sw;
+            }
         }
+        throw new IllegalStateException("Unknown type: " + type);
     }
 
     private void setSubSector(SubSectorType type, Sector value) {
-        switch (type) {
-            case NW:
-                nw = value;
-                break;
-            case NE:
-                ne = value;
-                break;
-            case SE:
-                se = value;
-                break;
-            case SW:
-                sw = value;
-                break;
-            default:
-                throw new IllegalStateException("Unknown type: " + type);
+        if (type != null) {
+            switch (type) {
+                case NW:
+                    nw = value;
+                    return;
+                case NE:
+                    ne = value;
+                    return;
+                case SE:
+                    se = value;
+                    return;
+                case SW:
+                    sw = value;
+                    return;
+            }
         }
+        throw new IllegalStateException("Unknown type: " + type);
+    }
+
+    BoxSector findUnderlying(Point2d topLeft, int depth) {
+        if (this.topLeft.equals(topLeft) && this.depth == depth) {
+            return this;
+        }
+        SubSectorType type = determineType(topLeft);
+        if (type == null) {
+            String msg = String.format("topLeft=%s is outside this=%s (depth=%d)", topLeft, this, depth);
+            throw new IllegalArgumentException(msg);
+        }
+        if (!(getSubSector(type) instanceof BoxSector)) {
+            String msg = String.format("topLeft=%s is not set within this=%s (depth=%d)", topLeft, this, depth);
+            throw new IllegalArgumentException(msg);
+        }
+        BoxSector subSector = (BoxSector) getSubSector(type);
+        return subSector.findUnderlying(topLeft, depth);
     }
 
     @Override
     public String toString() {
         return String.format("BoxSector(bx=%f, by=%f, len=%f, depth=%d)", topLeft.getX(), topLeft.getY(), len, depth);
+    }
+
+    public static boolean checkEquals(Point2d p, Point2d q, double precision){
+        double[] bounds = new double[3];
+        int depth = BoxSector.findMinEnclosing(bounds, p, q);
+        return depth == Integer.MAX_VALUE || bounds[2] < precision;
     }
 
 }

@@ -13,9 +13,7 @@ class PointSector implements Sector {
     private final Point2d point;
     private final double precision;
     @Getter @Setter
-    private Sector parent;
-    @Getter @Setter
-    private Sector link;
+    private BoxSector parent;
 
     public PointSector(Point2d point, double precision) {
         if (point == null) {
@@ -26,17 +24,12 @@ class PointSector implements Sector {
     }
 
     @Override
-    public Sector findLowestPredecessor(Point2d point) {
-        return null;
-    }
-
-    @Override
     public Point2d getTopLeft() {
         return point;
     }
 
     @Override
-    public Sector add(PointSector pointSector) {
+    public BoxSector add(PointSector pointSector) {
         return new BoxSector(this, pointSector, precision);
     }
 
